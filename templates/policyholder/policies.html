@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}My policies{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3"><h1 class="h3 mb-0">My policies</h1><a class="btn btn-primary" href="{{ url_for('policyholder.available_plans') }}">Explore plans</a></div>
+{% for p in policies %}
+<div class="card shadow-sm mb-3"><div class="card-body">
+  <div class="d-flex justify-content-between flex-wrap">
+    <h2 class="h5">{{ p.label }} · {{ p.plan.name }}</h2>
+    <span class="badge text-bg-{{ 'success' if p.status == 'active' else 'secondary' }}">{{ p.status|title }}</span>
+  </div>
+  <p class="mb-2 text-muted">{{ p.start_date|d }} → {{ p.end_date|d }}</p>
+  <div class="row small mb-3">
+    <div class="col-6 col-md-3"><strong>Annual limit</strong><br>{{ p.plan.annual_limit|inr }}</div>
+    <div class="col-6 col-md-3"><strong>Deductible</strong><br>{{ p.plan.deductible|inr }}</div>
+    <div class="col-6 col-md-3"><strong>Co-pay</strong><br>{{ p.plan.copay_percent }}%</div>
+    <div class="col-6 col-md-3"><strong>Covered</strong><br>{{ p.plan.covered_types|map('treatment_label')|join(', ') }}</div>
+  </div>
+  <h3 class="h6">Covered members</h3>
+  <ul class="mb-2">{% for m in p.members %}<li>{{ m.display_name }} <span class="text-muted">({{ m.relationship_to_holder }})</span></li>{% else %}<li class="text-muted">No members yet.</li>{% endfor %}</ul>
+  <a class="btn btn-sm btn-primary" href="{{ url_for('policyholder.new_claim', policy_id=p.id) }}">New reimbursement claim</a>
+</div></div>
+{% else %}
+<div class="alert alert-info">No policies are linked to your account.</div>
+{% endfor %}
+{% endblock %}

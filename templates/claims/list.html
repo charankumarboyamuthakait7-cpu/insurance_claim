@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, status_badge %}
+{% block title %}{{ 'Review queue' if queue else 'Claims' }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ 'Review queue' if queue else 'Claims' }}</h1>
+  {% if g.user.role in (C.ROLE_POLICYHOLDER, C.ROLE_HOSPITAL) %}
+    <a class="btn btn-primary" href="{{ role_url('new_claim') }}">New claim</a>
+  {% endif %}
+</div>
+
+<form class="card card-body shadow-sm mb-3" method="get" action="{{ url_for(endpoint) }}">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-3">
+      <label class="form-label small" for="q">Claim ID or member name</label>
+      <input class="form-control" id="q" name="q" value="{{ filters.q }}" maxlength="60">
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small" for="status">Status</label>
+      <select class="form-select" id="status" name="status">
+        <option value="">All</option>
+        {% for s in C.CLAIM_STATUSES %}
+          {% if not queue or s in C.QUEUE_STATUSES %}
+          <option value="{{ s }}" {{ 'selected' if filters.status == s }}>{{ s|status_label }}</option>
+          {% endif %}
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small" for="claim_type">Type</label>
+      <select class="form-select" id="claim_type" name="claim_type">
+        <option value="">All</option>
+        {% for t in C.CLAIM_TYPES %}<option value="{{ t }}" {{ 'selected' if filters.claim_type == t }}>{{ t|type_label }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small" for="hospital_id">Hospital</label>
+      <select class="form-select" id="hospital_id" name="hospital_id">
+        <option value="">All</option>
+        {% for h in hospitals %}<option value="{{ h.id }}" {{ 'selected' if filters.hospital_id == h.id }}>{{ h.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2 d-flex gap-2">
+      <button class="btn btn-primary" type="submit">Apply</button>
+      <a class="btn btn-outline-secondary" href="{{ url_for(endpoint) }}">Reset</a>
+    </div>
+  </div>
+</form>
+
+<div class="table-responsive">
+<table class="table table-hover align-middle bg-white">
+  <thead><tr>
+    <th>Claim</th><th>Type</th><th>Member</th><th>Hospital</th><th>Status</th><th class="text-end">Requested</th>
+    {% if queue %}<th>Age</th><th>Officer</th><th>Missing docs</th>{% endif %}
+    <th>Next action</th><th></th>
+  </tr></thead>
+  <tbody>
+  {% for claim in page.items %}
+    <tr>
+      <td><a href="{{ url_for('claims.detail', claim_id=claim.id) }}">{{ claim.label }}</a></td>
+      <td>{{ claim.claim_type|type_label }}</td>
+      <td>{{ claim.member.display_name }}</td>
+      <td>{{ claim.hospital.name }}</td>
+      <td>{{ status_badge(claim.status) }}</td>
+      <td class="text-end">{{ claim.requested_amount|inr }}</td>
+      {% if queue %}
+        <td>{{ claim.age_days if claim.age_days is not none else '—' }} d</td>
+        <td>{{ claim.officer.display_name if claim.officer else 'Unassigned' }}</td>
+        <td>{{ claim.missing_documents|map('doc_label')|join(', ') or '—' }}</td>
+      {% endif %}
+      <td class="small">{{ next_action(g.user, claim) }}</td>
+      <td class="text-nowrap">
+        {% if queue and can_take(g.user, claim) %}
+          <form method="post" action="{{ url_for('officer.take', claim_id=claim.id) }}" class="d-inline">
+            {{ csrf() }}<button class="btn btn-sm btn-primary" type="submit">Take</button>
+          </form>
+        {% endif %}
+        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('claims.detail', claim_id=claim.id) }}">Open</a>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="{{ 11 if queue else 8 }}" class="text-center text-muted py-4">
+      No records match these filters. <a href="{{ url_for(endpoint) }}">Reset filters</a>.
+    </td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% if page.pages > 1 %}
+<nav aria-label="Pages"><ul class="pagination">
+  {% for p in range(1, page.pages + 1) %}
+    <li class="page-item {{ 'active' if p == page.page }}">
+      <a class="page-link" href="{{ url_for(endpoint, q=filters.q, status=filters.status, claim_type=filters.claim_type, hospital_id=filters.hospital_id or '', page=p) }}">{{ p }}</a>
+    </li>
+  {% endfor %}
+</ul></nav>
+{% endif %}
+{% endblock %}

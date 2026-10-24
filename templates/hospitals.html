@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Hospital directory{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">Hospital directory</h1>
+  {% if g.user.role == C.ROLE_ADMIN %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.hospitals') }}">Manage</a>{% endif %}
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-5"><input class="form-control" name="q" value="{{ q }}" placeholder="Search name or city" aria-label="Search"></div>
+  <div class="col-auto form-check align-self-center ms-2">
+    <input class="form-check-input" type="checkbox" id="network" name="network" value="1" {{ 'checked' if network_only }}>
+    <label class="form-check-label" for="network">Network only</label>
+  </div>
+  <div class="col-auto"><button class="btn btn-primary" type="submit">Search</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('claims.hospital_directory') }}">Reset</a></div>
+</form>
+<div class="table-responsive"><table class="table table-sm bg-white">
+  <thead><tr><th>Hospital</th><th>City</th><th>Cashless eligible</th></tr></thead>
+  <tbody>
+  {% for h in hospitals %}
+    <tr><td>{{ h.name }}</td><td>{{ h.city }}</td>
+        <td>{% if h.network_status %}<span class="badge text-bg-success">Network</span>{% else %}<span class="badge text-bg-secondary">Non-network</span>{% endif %}</td></tr>
+  {% else %}
+    <tr><td colspan="3" class="text-center text-muted py-4">No hospitals match your search.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

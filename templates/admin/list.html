@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h1 class="h3 mb-0">{{ title }}</h1>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ back_url or url_for('admin.dashboard') }}">Back</a>
+</div>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="table-responsive"><table class="table table-sm bg-white align-middle">
+      <thead><tr>{% for col in columns %}<th>{{ col }}</th>{% endfor %}<th></th></tr></thead>
+      <tbody>
+      {% for row in rows %}
+        <tr>{% for cell in row.cells %}<td>{{ cell }}</td>{% endfor %}
+          <td class="text-nowrap">
+            {% if row.edit_url %}<a class="btn btn-sm btn-outline-primary" href="{{ row.edit_url }}">Edit</a>{% endif %}
+            {% if row.extra_url %}<a class="btn btn-sm btn-outline-secondary" href="{{ row.extra_url }}">{{ row.extra_label }}</a>{% endif %}
+          </td></tr>
+      {% else %}
+        <tr><td colspan="{{ columns|length + 1 }}" class="text-center text-muted py-4">No records yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+  </div>
+  <div class="col-lg-4">
+    <form method="post" action="{{ post_url }}" class="card card-body shadow-sm">
+      {{ csrf() }}
+      <h2 class="h6">{{ create_title }}</h2>
+      {% for f in fields %}{{ field(f, values, errors) }}{% endfor %}
+      <button class="btn btn-primary" type="submit">Save</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

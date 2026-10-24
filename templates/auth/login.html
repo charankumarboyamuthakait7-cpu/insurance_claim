@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign in{% endblock %}
+{% block auth_content %}
+<div class="login-layout">
+  <section class="login-story">
+    <a class="brand brand-light" href="{{ url_for('auth.login') }}"><span class="brand-mark">C</span><span><strong>ClaimCare</strong><small>CLAIMS OPERATIONS</small></span></a>
+    <div class="story-content"><div class="story-chip"><span></span> HEALTH CLAIMS WORKSPACE</div><h1>Clarity at every<br>step of a claim.</h1><p>A connected workspace for policyholders, hospital teams, claims officers and administrators.</p>
+      <div class="story-steps"><div class="story-step"><span>01</span><div><strong>Submit with confidence</strong><small>Clear requirements and document checklists.</small></div></div><div class="story-step"><span>02</span><div><strong>Review with context</strong><small>Coverage, evidence and history in one place.</small></div></div><div class="story-step"><span>03</span><div><strong>Track every decision</strong><small>Auditable status updates from start to finish.</small></div></div></div>
+    </div><div class="story-footer">A fictional classroom simulation · No real insurance decisions</div>
+  </section>
+  <section class="login-panel"><div class="login-box"><div class="login-kicker">WELCOME BACK</div><h2>Sign in to ClaimCare</h2><p class="login-subtitle">Use your assigned account to open your workspace.</p>
+    <form method="post" class="login-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-4"><label class="form-label" for="username">Username</label><input class="form-control form-control-lg" id="username" name="username" value="{{ username }}" placeholder="Enter your username" required autofocus autocomplete="username" maxlength="50"></div>
+      <div class="mb-3"><div class="d-flex justify-content-between"><label class="form-label" for="password">Password</label></div><input class="form-control form-control-lg" id="password" name="password" type="password" placeholder="Enter your password" required autocomplete="current-password"></div>
+      <div class="login-helper"><span class="helper-lock">▣</span> Your access is controlled by your assigned role.</div>
+      <button class="btn btn-primary btn-lg w-100 login-submit" type="submit">Sign in <span aria-hidden="true">→</span></button>
+    </form><div class="login-bottom"><span class="login-dot"></span> Secure session · Protected workspace</div>
+  </div></section>
+</div>
+{% endblock %}

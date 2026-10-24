@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, status_badge, form_errors %}
+{% block title %}{{ claim.label }}{% endblock %}
+{% block content %}
+{% set ep = request.endpoint.split('.')[-1] %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h1 class="h3 mb-0">{{ claim.label }} {{ status_badge(claim.status) }}
+    <span class="badge text-bg-light border">{{ claim.claim_type|type_label }}</span></h1>
+  <div class="d-flex gap-2">
+    {% if can_edit %}<a class="btn btn-outline-primary btn-sm" href="{{ role_url('edit_claim', claim_id=claim.id) }}">Edit draft</a>{% endif %}
+    {% if can_submit %}
+    <form method="post" action="{{ role_url('submit', claim_id=claim.id) }}">{{ csrf() }}
+      <button class="btn btn-primary btn-sm" type="submit" data-confirm="Submit this claim for review?">Submit claim</button></form>
+    {% endif %}
+    {% if can_take %}
+    <form method="post" action="{{ url_for('officer.take', claim_id=claim.id) }}">{{ csrf() }}
+      <button class="btn btn-primary btn-sm" type="submit">Take for review</button></form>
+    {% endif %}
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('claims.list_claims') }}">Back to list</a>
+  </div>
+</div>
+<p class="text-muted small">Next step: {{ next_action(g.user, claim) }}</p>
+
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Claim event</h2>
+      <dl class="row small mb-0">
+        <dt class="col-sm-4">Member</dt><dd class="col-sm-8">{{ claim.member.display_name }} ({{ claim.member.relationship_to_holder }})</dd>
+        <dt class="col-sm-4">Hospital</dt><dd class="col-sm-8">{{ claim.hospital.name }}, {{ claim.hospital.city }} {{ '(network)' if claim.hospital.network_status }}</dd>
+        <dt class="col-sm-4">Treatment</dt><dd class="col-sm-8">{{ claim.treatment_type|treatment_label }}</dd>
+        <dt class="col-sm-4">Admission → discharge</dt><dd class="col-sm-8">{{ claim.admission_date|d }} → {{ claim.discharge_date|d }}</dd>
+        <dt class="col-sm-4">Requested amount</dt><dd class="col-sm-8">{{ claim.requested_amount|inr }}</dd>
+        <dt class="col-sm-4">Description</dt><dd class="col-sm-8">{{ claim.description or '—' }}</dd>
+        <dt class="col-sm-4">Created by</dt><dd class="col-sm-8">{{ claim.creator.display_name }}</dd>
+        <dt class="col-sm-4">Assigned officer</dt><dd class="col-sm-8">{{ claim.officer.display_name if claim.officer else 'Unassigned' }}</dd>
+        {% if claim.age_days is not none and claim.status not in ('paid', 'rejected') %}
+        <dt class="col-sm-4">Age</dt><dd class="col-sm-8">{{ claim.age_days }} day(s) since submission</dd>{% endif %}
+      </dl>
+    </div></div>
+
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Policy snapshot</h2>
+      <dl class="row small mb-0">
+        <dt class="col-sm-4">Policy</dt><dd class="col-sm-8">{{ policy.label }} · {{ plan.name }}</dd>
+        <dt class="col-sm-4">Period / status</dt><dd class="col-sm-8">{{ policy.start_date|d }} → {{ policy.end_date|d }} · {{ policy.status|title }}</dd>
+        {% if show_financials %}
+        <dt class="col-sm-4">Annual limit</dt><dd class="col-sm-8">{{ plan.annual_limit|inr }}</dd>
+        <dt class="col-sm-4">Deductible / co-pay</dt><dd class="col-sm-8">{{ plan.deductible|inr }} / {{ plan.copay_percent }}%</dd>
+        <dt class="col-sm-4">Covered treatments</dt><dd class="col-sm-8">{{ plan.covered_types|map('treatment_label')|join(', ') }}</dd>
+        <dt class="col-sm-4">Remaining simulated cover</dt><dd class="col-sm-8">{{ remaining|inr }}</dd>
+        {% endif %}
+      </dl>
+    </div></div>
+
+    {% if checks %}
+    <div class="card shadow-sm mb-3 border-info"><div class="card-body">
+      <h2 class="h6">Review checks <span class="text-muted small">(assistive only - you make the decision)</span></h2>
+      <ul class="small mb-0">
+        <li>{{ '✅' if checks.policy_ok else '⚠️' }} Admission date {{ 'is inside' if checks.policy_ok else 'is NOT inside an active policy period for' }} {{ policy.label }}</li>
+        <li>{{ '✅' if checks.treatment_ok else '⚠️' }} Plan {{ 'covers' if checks.treatment_ok else 'does NOT cover' }} {{ claim.treatment_type }} treatment</li>
+        <li>{{ '✅' if checks.hospital_network else 'ℹ️' }} Hospital is {{ '' if checks.hospital_network else 'not ' }}a network hospital</li>
+        <li>{{ '✅' if not checks.missing_documents else '⚠️' }} Missing documents: {{ checks.missing_documents|map('doc_label')|join(', ') or 'none' }}</li>
+        <li>Remaining simulated cover: {{ checks.remaining_cover|inr }}</li>
+        {% if checks.duplicates %}
+        <li class="text-danger fw-semibold">⚠️ Potential duplicate of
+          {% for d in checks.duplicates %}<a href="{{ url_for('claims.detail', claim_id=d.id) }}">{{ d.label }}</a> ({{ d.status|status_label }}){{ ', ' if not loop.last }}{% endfor %}
+          - same member, hospital, dates and claim type. This is a warning, not an automatic rejection.</li>
+        {% endif %}
+      </ul>
+    </div></div>
+    {% endif %}
+
+    {% if g.user.role == C.ROLE_POLICYHOLDER and claim.status in (C.STATUS_DRAFT, C.STATUS_MORE_INFO) %}
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Upload bills and supporting documents</h2>
+      <p class="small text-muted">PDF, PNG, JPG or JPEG; maximum 10 MB per file.</p>
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('policyholder.upload_documents', claim_id=claim.id) }}">
+        {{ csrf() }}
+        <label class="form-label" for="documents">Hospital bill, discharge summary, receipts or reports</label>
+        <input class="form-control mb-3" id="documents" name="documents" type="file" accept=".pdf,.png,.jpg,.jpeg" multiple required>
+        <button class="btn btn-outline-primary" type="submit">Upload documents</button>
+      </form>
+    </div></div>
+    {% endif %}
+
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Document checklist</h2>
+      {% if can_checklist %}
+      <form method="post" action="{{ role_url('checklist', claim_id=claim.id) }}">
+        {{ csrf() }}
+        {% if ep == 'checklist' %}{{ form_errors(errors) }}{% endif %}
+        {% for doc in claim.documents %}
+        <div class="row g-2 mb-2 align-items-center">
+          <div class="col-6 small">{{ doc.document_type|doc_label }}
+            {% if doc.info_requested %}<span class="badge text-bg-warning">Requested by officer</span>{% endif %}</div>
+          <div class="col-6"><select class="form-select form-select-sm" name="doc_{{ doc.document_type }}" aria-label="{{ doc.document_type|doc_label }}">
+            <option value="missing" {{ 'selected' if doc.checklist_status == 'missing' }}>Missing</option>
+            <option value="received" {{ 'selected' if doc.checklist_status == 'received' }}>Received</option>
+          </select></div>
+        </div>
+        {% endfor %}
+        <button class="btn btn-sm btn-outline-primary" type="submit">Save checklist</button>
+      </form>
+      {% else %}
+      <ul class="small mb-0">
+        {% for doc in claim.documents %}
+        <li>{{ doc.document_type|doc_label }}: <strong>{{ doc.checklist_status|title }}</strong>
+          {% if doc.info_requested %}<span class="badge text-bg-warning">Requested by officer</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div></div>
+
+    {% if claim.decision_reason or explanation %}
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Decision</h2>
+      <p class="small mb-2"><strong>Reason:</strong> {{ claim.decision_reason or '—' }}</p>
+      {% if explanation and show_financials %}
+      <table class="table table-sm small mb-2">
+        <tr><td>Requested amount</td><td class="text-end">{{ explanation.requested|inr }}</td></tr>
+        <tr><td>Eligible amount (officer)</td><td class="text-end">{{ explanation.eligible|inr }}</td></tr>
+        <tr><td>Not eligible (requested − eligible)</td><td class="text-end">− {{ explanation.not_eligible_difference|inr }}</td></tr>
+        <tr><td>Deductible applied</td><td class="text-end">− {{ explanation.deductible_applied|inr }}</td></tr>
+        <tr><td>After deductible</td><td class="text-end">{{ explanation.after_deductible|inr }}</td></tr>
+        <tr><td>Co-pay share ({{ explanation.copay_percent }}%)</td><td class="text-end">− {{ explanation.copay_share|inr }}</td></tr>
+        <tr class="fw-bold"><td>Simulated payout</td><td class="text-end">{{ explanation.payout|inr }}</td></tr>
+      </table>
+      {% elif claim.eligible_amount is not none %}
+      <p class="small mb-2">Approved amount recorded.</p>
+      {% endif %}
+      {% if claim.settlement %}
+      <div class="alert alert-dark py-2 small mb-0">Simulated settlement of <strong>{{ claim.settlement.amount|inr }}</strong>
+        recorded for the <strong>{{ claim.settlement.payee_type }}</strong> by {{ claim.settlement.recorder.display_name }}
+        on {{ claim.settlement.recorded_at|dt }}. No real money was transferred.</div>
+      {% endif %}
+    </div></div>
+    {% endif %}
+  </div>
+
+  <div class="col-lg-5">
+    {% if can_respond %}
+    <div class="card shadow-sm mb-3 border-warning"><div class="card-body">
+      <h2 class="h6">Respond to the information request</h2>
+      <form method="post" action="{{ role_url('respond', claim_id=claim.id) }}" class="needs-validation" novalidate>
+        {{ csrf() }}
+        {% if ep == 'respond' %}{{ form_errors(errors) }}{% endif %}
+        <textarea class="form-control mb-2" name="note" rows="3" maxlength="700" required placeholder="Explain what you updated or provided">{{ form.get('note', '') if ep == 'respond' }}</textarea>
+        <button class="btn btn-primary btn-sm" type="submit">Send response</button>
+      </form>
+    </div></div>
+    {% endif %}
+
+    {% if can_decide %}
+    <div class="card shadow-sm mb-3"><div class="card-body">
+      <h2 class="h6">Request more information</h2>
+      <form method="post" action="{{ url_for('officer.request_info', claim_id=claim.id) }}">
+        {{ csrf() }}
+        {% if ep == 'request_info' %}{{ form_errors(errors) }}{% endif %}
+        {% for t in C.DOCUMENT_TYPES %}
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="req_{{ t }}" name="document_types" value="{{ t }}">
+          <label class="form-check-label small" for="req_{{ t }}">{{ t|doc_label }}</label></div>
+        {% endfor %}
+        <textarea class="form-control my-2" name="reason" rows="2" maxlength="700" placeholder="Reason" required>{{ form.get('reason', '') if ep == 'request_info' }}</textarea>
+        <button class="btn btn-warning btn-sm" type="submit">Request information</button>
+      </form>
+    </div></div>
+
+    <div class="card shadow-sm mb-3 border-success"><div class="card-body">
+      <h2 class="h6">Approve</h2>
+      <form method="post" action="{{ url_for('officer.approve', claim_id=claim.id) }}">
+        {{ csrf() }}
+        {% if ep == 'approve' %}{{ form_errors(errors) }}{% endif %}
+        <label class="form-label small" for="eligible_amount">Eligible amount (₹, max {{ claim.requested_amount|inr }})</label>
+        <input class="form-control mb-2" id="eligible_amount" name="eligible_amount" type="number" step="0.01" min="0.01"
+               max="{{ claim.requested_amount }}" required value="{{ form.get('eligible_amount', '') if ep == 'approve' }}">
+        <textarea class="form-control mb-2" name="reason" rows="2" maxlength="700" placeholder="Written reason" required>{{ form.get('reason', '') if ep == 'approve' }}</textarea>
+        <button class="btn btn-success btn-sm" type="submit" data-confirm="Approve this claim?">Approve</button>
+      </form>
+    </div></div>
+
+    <div class="card shadow-sm mb-3 border-danger"><div class="card-body">
+      <h2 class="h6">Reject</h2>
+      <form method="post" action="{{ url_for('officer.reject', claim_id=claim.id) }}">
+        {{ csrf() }}
+        {% if ep == 'reject' %}{{ form_errors(errors) }}{% endif %}
+        <textarea class="form-control mb-2" name="reason" rows="2" maxlength="700" placeholder="Written reason (required)" required>{{ form.get('reason', '') if ep == 'reject' }}</textarea>
+        <button class="btn btn-danger btn-sm" type="submit" data-confirm="Reject this claim?">Reject</button>
+      </form>
+    </div></div>
+    {% endif %}
+
+    {% if can_settle %}
+    <div class="card shadow-sm mb-3 border-dark"><div class="card-body">
+      <h2 class="h6">Record simulated settlement</h2>
+      <p class="small mb-2">Payee: <strong>{{ 'Hospital' if claim.claim_type == 'cashless' else 'Policyholder' }}</strong>.
+        Amount must equal the computed payout.</p>
+      <form method="post" action="{{ url_for('admin.settle', claim_id=claim.id) }}">
+        {{ csrf() }}
+        {% if ep == 'settle' %}{{ form_errors(errors) }}{% endif %}
+        <input class="form-control mb-2" name="amount" type="number" step="0.01" aria-label="Settlement amount"
+               value="{{ claim.payout_amount }}" required>
+        <button class="btn btn-dark btn-sm" type="submit" data-confirm="Record this simulated payment?">Record settlement</button>
+      </form>
+    </div></div>
+    {% endif %}
+
+    <div class="card shadow-sm"><div class="card-body">
+      <h2 class="h6">History</h2>
+      <ol class="timeline small mb-0">
+        {% for h in claim.history %}
+        <li>
+          <div class="fw-semibold">
+            {% if h.event_type == 'status_change' %}{{ (h.from_status|status_label) if h.from_status else 'New' }} → {{ h.to_status|status_label }}
+            {% else %}{{ h.event_type|replace('_', ' ')|title }}{% endif %}
+          </div>
+          <div class="text-muted">{{ h.timestamp|dt }} · {{ h.actor.display_name }}</div>
+          {% if h.note %}<div>{{ h.note }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

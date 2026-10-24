@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_macros.html" import dashboard_cards %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">Welcome, {{ g.user.display_name }}</h1>
+<p class="text-muted">Hospital desk{% if g.user.hospital %} · {{ g.user.hospital.name }}{% endif %}</p>
+{{ dashboard_cards(cards) }}
+<div class="mt-4 d-flex gap-2 flex-wrap">
+  <a class="btn btn-primary" href="{{ url_for('hospital.new_claim') }}">New cashless claim</a>
+  <a class="btn btn-outline-secondary" href="{{ url_for('claims.reports_page') }}">View report</a>
+</div>
+{% endblock %}

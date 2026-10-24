@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import dashboard_cards %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h1 class="h3 mb-1">Welcome, {{ g.user.display_name }}</h1>
+<p class="text-muted">Administrator</p>
+{{ dashboard_cards(cards) }}
+<div class="mt-4 d-flex gap-2 flex-wrap">
+  <a class="btn btn-primary" href="{{ url_for('admin.users') }}">Users and roles</a>
+  <a class="btn btn-outline-primary" href="{{ url_for('admin.hospitals') }}">Hospitals</a>
+  <a class="btn btn-outline-primary" href="{{ url_for('admin.plans') }}">Plans</a>
+  <a class="btn btn-outline-primary" href="{{ url_for('admin.policies') }}">Policies and members</a>
+  <a class="btn btn-outline-secondary" href="{{ url_for('claims.reports_page') }}">View report</a>
+</div>
+{% endblock %}

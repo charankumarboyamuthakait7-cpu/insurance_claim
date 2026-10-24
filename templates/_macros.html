@@ -1,0 +1,70 @@
+{# Reusable Jinja macros: CSRF token, status badge, error list and generic form fields. #}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro status_badge(status) %}<span class="badge text-bg-{{ status|status_badge }}">{{ status|status_label }}</span>{% endmacro %}
+
+{% macro form_errors(errors) %}
+  {% if errors %}
+  <div class="alert alert-danger py-2 small mb-2" role="alert">
+    <ul class="mb-0 ps-3">{% for key, msg in errors.items() %}<li>{{ msg }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+{% endmacro %}
+
+{% macro field(f, values, errors) %}
+  {% set err = errors.get(f.name) %}
+  <div class="mb-3">
+    {% if f.type == 'checkbox' %}
+      <div class="form-check">
+        <input class="form-check-input{{ ' is-invalid' if err }}" type="checkbox" id="f_{{ f.name }}"
+               name="{{ f.name }}" {{ 'checked' if values.get(f.name) in ('on', '1', 'true', True) }}>
+        <label class="form-check-label" for="f_{{ f.name }}">{{ f.label }}</label>
+      </div>
+    {% elif f.type == 'checkboxes' %}
+      <label class="form-label d-block">{{ f.label }}</label>
+      {% set chosen = values.get(f.name, []) %}
+      {% for v, l in f.options %}
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="checkbox" id="f_{{ f.name }}_{{ v }}" name="{{ f.name }}"
+                 value="{{ v }}" {{ 'checked' if v in chosen }}>
+          <label class="form-check-label" for="f_{{ f.name }}_{{ v }}">{{ l }}</label>
+        </div>
+      {% endfor %}
+    {% elif f.type == 'select' %}
+      <label class="form-label" for="f_{{ f.name }}">{{ f.label }}</label>
+      <select class="form-select{{ ' is-invalid' if err }}" id="f_{{ f.name }}" name="{{ f.name }}">
+        {% for v, l in f.options %}
+          <option value="{{ v }}" {{ 'selected' if values.get(f.name, '')|string == v|string }}>{{ l }}</option>
+        {% endfor %}
+      </select>
+    {% else %}
+      <label class="form-label" for="f_{{ f.name }}">{{ f.label }}</label>
+      <input class="form-control{{ ' is-invalid' if err }}" id="f_{{ f.name }}" name="{{ f.name }}"
+             type="{{ f.type }}" value="{{ '' if f.type == 'password' else values.get(f.name, '') }}"
+             {% if f.step %}step="{{ f.step }}" min="0"{% endif %}
+             {{ 'required' if f.required }} {{ 'readonly' if f.readonly }}
+             {% if f.type == 'password' %}autocomplete="new-password"{% endif %}>
+    {% endif %}
+    {% if err %}<div class="invalid-feedback d-block">{{ err }}</div>{% endif %}
+  </div>
+{% endmacro %}
+
+{% macro dashboard_cards(cards) %}
+<div class="row g-3">
+  {% for card in cards %}
+  <div class="col-6 col-md-4 col-lg-3">
+    {% if card.endpoint %}
+      {% set link = url_for(card.endpoint, **(card.params or {})) %}
+    {% else %}
+      {% set link = url_for('claims.list_claims', **(card.params or {})) %}
+    {% endif %}
+    <a class="text-decoration-none" href="{{ link }}">
+      <div class="card h-100 shadow-sm stat-card"><div class="card-body">
+        <div class="display-6">{{ card.value }}</div>
+        <div class="text-muted">{{ card.label }}</div>
+      </div></div>
+    </a>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

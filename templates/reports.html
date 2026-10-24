@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge %}
+{% block title %}Reports{% endblock %}
+{% block content %}
+<h1 class="h3">Claims report</h1>
+<p class="text-muted">Simulated figures for classroom use only - not real financial results. Only claims in your own scope are counted.</p>
+<div class="table-responsive"><table class="table bg-white">
+  <thead><tr><th>Status</th><th>Type</th><th class="text-end">Claims</th><th class="text-end">Requested</th><th class="text-end">Eligible</th><th class="text-end">Simulated paid</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr><td>{{ status_badge(r.status) }}</td><td>{{ r.claim_type|type_label }}</td><td class="text-end">{{ r.count }}</td>
+        <td class="text-end">{{ r.requested|inr }}</td><td class="text-end">{{ r.eligible|inr }}</td><td class="text-end">{{ r.paid|inr }}</td></tr>
+  {% else %}
+    <tr><td colspan="6" class="text-center text-muted py-4">No claims to report yet.</td></tr>
+  {% endfor %}
+  </tbody>
+  {% if rows %}
+  <tfoot><tr class="fw-bold"><td colspan="2">Total</td><td class="text-end">{{ totals.count }}</td>
+    <td class="text-end">{{ totals.requested|inr }}</td><td class="text-end">{{ totals.eligible|inr }}</td><td class="text-end">{{ totals.paid|inr }}</td></tr></tfoot>
+  {% endif %}
+</table></div>
+{% endblock %}

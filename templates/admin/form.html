@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<h1 class="h3 mb-3">{{ title }}</h1>
+<form method="post" class="card card-body shadow-sm col-lg-6">
+  {{ csrf() }}
+  {% for f in fields %}{{ field(f, values, errors) }}{% endfor %}
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Save changes</button>
+    <a class="btn btn-link" href="{{ back_url }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}
